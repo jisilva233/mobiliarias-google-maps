@@ -3,11 +3,5 @@
   "devCommand": "streamlit run dashboard.py",
   "env": {
     "PYTHONUNBUFFERED": "1"
-  },
-  "functions": {
-    "dashboard.py": {
-      "memory": 1024,
-      "maxDuration": 300
-    }
   }
 }
