@@ -1,0 +1,35 @@
+name: wf-full-scan
+version: 1.0.0
+description: Pipeline completo - scraping → transformação → persistência
+entry: scrape-agencies
+
+steps:
+  - id: scrape
+    task: scrape-agencies.md
+    agent: scraper-agent
+    inputs:
+      city: "{{ params.city }}"
+      max_results: "{{ params.max_results | default(50) }}"
+    outputs:
+      raw_data: agencies_raw
+
+  - id: transform
+    task: transform-data.md
+    agent: pipeline-agent
+    depends_on: [scrape]
+    inputs:
+      raw_data: "{{ steps.scrape.outputs.raw_data }}"
+    outputs:
+      clean_data: agencies_clean
+
+  - id: load
+    task: load-to-supabase.md
+    agent: pipeline-agent
+    depends_on: [transform]
+    inputs:
+      data: "{{ steps.transform.outputs.clean_data }}"
+      city: "{{ params.city }}"
+    outputs:
+      report: load_report
+
+on_error: stop

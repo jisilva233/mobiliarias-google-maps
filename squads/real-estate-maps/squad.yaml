@@ -1,0 +1,51 @@
+name: real-estate-maps
+version: 1.0.0
+description: Squad para mapear imobiliárias via Google Maps com Playwright, armazenar no Supabase e visualizar em dashboard Streamlit
+author: jisilva233
+license: MIT
+slashPrefix: realEstateMaps
+
+aiox:
+  minVersion: "2.1.0"
+  type: squad
+
+components:
+  agents:
+    - scraper-agent.md
+    - pipeline-agent.md
+  tasks:
+    - scrape-agencies.md
+    - transform-data.md
+    - load-to-supabase.md
+  workflows:
+    - wf-full-scan.yaml
+  checklists: []
+  templates: []
+  tools: []
+  scripts:
+    - scan_agencies.py
+    - dashboard.py
+
+config:
+  extends: extend
+  coding-standards: config/coding-standards.md
+  tech-stack: config/tech-stack.md
+  source-tree: config/source-tree.md
+
+dependencies:
+  node: []
+  python:
+    - playwright
+    - supabase
+    - streamlit
+    - pandas
+    - pydeck
+  squads: []
+
+tags:
+  - scraping
+  - google-maps
+  - supabase
+  - streamlit
+  - real-estate
+  - etl
