@@ -10,9 +10,15 @@ showErrorDetails = true
 toolbarMode = "minimal"
 
 [server]
-port = 8501
+port = 8080
 headless = true
+runOnSave = false
 maxUploadSize = 200
+enableCORS = false
 
 [logger]
 level = "info"
+
+[client]
+showErrorDetails = false
+toolbarMode = "minimal"

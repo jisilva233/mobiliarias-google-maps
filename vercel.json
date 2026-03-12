@@ -1,6 +1,6 @@
 {
   "buildCommand": "pip install -r requirements.txt && playwright install",
-  "devCommand": "streamlit run dashboard.py",
+  "runtime": "python3.11",
   "env": {
     "PYTHONUNBUFFERED": "1"
   }
