@@ -1,3 +1,5 @@
+import asyncio
+import subprocess
 import pandas as pd
 import streamlit as st
 
@@ -92,3 +94,43 @@ def render_ranking(df: pd.DataFrame) -> None:
             "reviews": st.column_config.NumberColumn("Reviews"),
         },
     )
+
+
+def render_scan_input() -> None:
+    """Renderiza campo para escanear nova cidade."""
+    st.subheader("🔍 Escanear Nova Cidade")
+
+    col1, col2, col3 = st.columns([3, 1, 1])
+
+    with col1:
+        cidade = st.text_input(
+            "Nome da cidade",
+            placeholder="Ex: Florianopolis, Sao Paulo, Porto Alegre",
+            help="Digite o nome da cidade para escanear imobiliárias"
+        )
+
+    with col2:
+        geocode_flag = st.checkbox("Com geocoding", value=True, help="Busca coordenadas (lat/lon)")
+
+    with col3:
+        btn_click = st.button("Escanear", type="primary", use_container_width=True)
+
+    if btn_click and cidade:
+        with st.spinner(f"Escaneando {cidade}..."):
+            try:
+                cmd = ["python", "scan_agencies.py", "--city", cidade]
+                if geocode_flag:
+                    cmd.append("--geocode")
+
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+                if result.returncode == 0:
+                    st.success(f"Scan concluido para {cidade}. Atualize a pagina para ver os dados.")
+                else:
+                    st.error(f"Erro ao escanear: {result.stderr}")
+            except subprocess.TimeoutExpired:
+                st.error(f"Timeout ao escanear {cidade} (limite: 5 minutos)")
+            except Exception as e:
+                st.error(f"Erro: {str(e)}")
+    elif btn_click:
+        st.warning("Digite o nome de uma cidade para escanear.")

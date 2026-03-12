@@ -1,46 +1,51 @@
-
-
-# Environment & Secrets (AIOX)
+# Environment
 .env
 .env.local
 .env.*.local
-*.key
-*.pem
-
-# Dependencies (AIOX)
-node_modules/
-node_modules
-
-# Build & Logs (AIOX)
-dist/
-build/
-*.log
-logs/
-
-# IDE & OS (AIOX)
-.DS_Store
-Thumbs.db
-.idea/
-*.swp
-
-# AIOX Local (AIOX)
-.aiox-core/local/
-.claude/settings.local.json
-.aiox/install-log.txt
 
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
-.venv/
-venv/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/cache/
 
 # Playwright
-error_scraping.png
-error.png
+browsers/
 
-# Real-estate-maps
-.env
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

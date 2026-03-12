@@ -40,8 +40,13 @@ def main():
     st.title("🏠 Mapa de Imobiliárias")
     st.caption("Dados coletados via Google Maps · Atualizado via `scan_agencies.py`")
 
-    from dashboard.components import render_filters, render_metrics, render_table, render_ranking
+    from dashboard.components import render_filters, render_metrics, render_table, render_ranking, render_scan_input
     from dashboard.map_view import render_map
+
+    # Seção para escanear nova cidade
+    render_scan_input()
+
+    st.divider()
 
     # Carrega todos os dados
     df = load_data()

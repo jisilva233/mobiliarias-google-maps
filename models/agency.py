@@ -11,6 +11,8 @@ class Agency:
     website: Optional[str] = None
     rating: Optional[float] = None
     reviews: Optional[int] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
     def to_dict(self) -> dict:
         return {k: v for k, v in asdict(self).items()}

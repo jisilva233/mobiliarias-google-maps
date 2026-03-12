@@ -21,7 +21,10 @@ class GoogleMapsScraper:
     async def scrape(self, city: str, max_results: int = 50) -> List[Agency]:
         """Scrapa imobiliárias de uma cidade no Google Maps."""
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=self.headless)
+            browser = await p.chromium.launch(
+                headless=self.headless,
+                args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+            )
             context = await browser.new_context(
                 locale="pt-BR",
                 user_agent=(
@@ -29,6 +32,7 @@ class GoogleMapsScraper:
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/120.0.0.0 Safari/537.36"
                 ),
+                viewport={"width": 1280, "height": 800},
             )
             page = await context.new_page()
 
@@ -58,25 +62,26 @@ class GoogleMapsScraper:
         url = f"https://www.google.com/maps/search/{quote(query)}"
 
         logger.info("Navegando para: %s", url)
-        await page.goto(url, wait_until="networkidle", timeout=30000)
-        await asyncio.sleep(2)
+        # Google Maps nunca atinge "networkidle" — usar "load" + aguardo explícito
+        await page.goto(url, wait_until="load", timeout=60000)
+        await asyncio.sleep(3)
 
         # Aguarda o painel de resultados
         try:
-            await page.wait_for_selector('div[role="feed"]', timeout=15000)
+            await page.wait_for_selector('div[role="feed"]', timeout=20000)
         except PlaywrightTimeout:
             logger.warning("Painel de resultados não encontrado — tentando continuar")
 
         # Scroll para carregar resultados
         await self._scroll_feed(page, max_results)
 
-        # Coleta cards
-        cards = await page.query_selector_all('[data-result-index]')
+        # Coleta cards — seletor atual do Google Maps
+        cards = await page.query_selector_all('.Nv2PK')
         logger.info("%d cards encontrados", len(cards))
 
         results = []
         for card in cards[:max_results]:
-            raw = await self._extract_card(page, card)
+            raw = await self._extract_card(card)
             if raw:
                 results.append(raw)
 
@@ -96,7 +101,7 @@ class GoogleMapsScraper:
             await feed.evaluate("el => el.scrollBy(0, 800)")
             await asyncio.sleep(SCROLL_PAUSE)
 
-            cards = await page.query_selector_all('[data-result-index]')
+            cards = await page.query_selector_all('.Nv2PK')
             loaded = len(cards)
 
             if loaded == prev_count:
@@ -107,55 +112,45 @@ class GoogleMapsScraper:
 
             logger.debug("Scroll: %d cards carregados", loaded)
 
-    async def _extract_card(self, page: Page, card) -> Optional[dict]:
-        """Extrai dados de um card clicando nele para abrir o painel lateral."""
+    async def _extract_card(self, card) -> Optional[dict]:
+        """Extrai dados direto do card sem clicar (mais rápido e estável)."""
+        import re
         try:
-            await card.click()
-            await asyncio.sleep(1.5)
-
-            nome = await self._safe_text(page, 'h1.fontHeadlineLarge, h1[class*="fontHeadline"]')
+            # Nome
+            nome_el = await card.query_selector('.qBF1Pd, .fontHeadlineSmall, [class*="fontHead"]')
+            nome = (await nome_el.inner_text()).strip() if nome_el else None
             if not nome:
-                nome = await self._safe_text(page, '[data-attrid="title"]')
+                return None
 
-            rating = await self._safe_attr(
-                page,
-                'span[aria-label*="estrelas"], span[aria-label*="stars"]',
-                "aria-label",
-            )
+            # Rating
+            rating_el = await card.query_selector('span[aria-label*="estrela"], span[aria-label*="star"]')
+            rating = await rating_el.get_attribute("aria-label") if rating_el else None
 
-            reviews = await self._safe_attr(
-                page,
-                'span[aria-label*="avaliações"], span[aria-label*="reviews"]',
-                "aria-label",
-            )
+            # Reviews — número entre parênteses ex: "(123)"
+            reviews_el = await card.query_selector('span[aria-label*="avalia"], span[aria-label*="review"]')
+            reviews = await reviews_el.get_attribute("aria-label") if reviews_el else None
 
-            endereco = await self._safe_attr(
-                page,
-                'button[data-tooltip="Copiar endereço"], button[data-item-id="address"]',
-                "aria-label",
-            )
-            if not endereco:
-                endereco = await self._safe_text(
-                    page,
-                    '[data-item-id="address"] .fontBodyMedium',
-                )
+            # Texto completo do card para extrair endereço e telefone
+            text = await card.inner_text()
+            lines = [l.strip() for l in text.split("\n") if l.strip()]
 
-            telefone = await self._safe_attr(
-                page,
-                'button[data-tooltip="Copiar número de telefone"], button[data-item-id*="phone"]',
-                "aria-label",
-            )
-            if not telefone:
-                telefone = await self._safe_text(
-                    page,
-                    '[data-item-id*="phone"] .fontBodyMedium',
-                )
+            # Telefone — padrão (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+            telefone = None
+            for line in lines:
+                if re.search(r'\(\d{2}\)\s*\d{4,5}[-\s]\d{4}', line):
+                    telefone = re.search(r'\(\d{2}\)\s*\d{4,5}[-\s]\d{4}', line).group()
+                    break
 
-            website = await self._safe_attr(
-                page,
-                'a[data-tooltip="Abrir site"], a[data-item-id="authority"]',
-                "href",
-            )
+            # Endereço — linha após categoria (ex: "Imobiliária · endereço")
+            endereco = None
+            for line in lines:
+                if "·" in line and re.search(r'\w{3,}', line.split("·")[-1].strip()):
+                    endereco = line.split("·")[-1].strip()
+                    break
+
+            # Website
+            website_el = await card.query_selector('a[data-value="Website"], a[href*="http"][data-value]')
+            website = await website_el.get_attribute("href") if website_el else None
 
             return {
                 "nome": nome,
@@ -166,27 +161,7 @@ class GoogleMapsScraper:
                 "reviews": reviews,
             }
 
-        except PlaywrightTimeout:
-            logger.warning("Timeout ao extrair card — pulando")
-            return None
         except Exception as exc:
             logger.warning("Erro ao extrair card: %s", exc)
             return None
 
-    async def _safe_text(self, page: Page, selector: str) -> Optional[str]:
-        try:
-            el = await page.query_selector(selector)
-            if el:
-                return await el.inner_text()
-        except Exception:
-            pass
-        return None
-
-    async def _safe_attr(self, page: Page, selector: str, attr: str) -> Optional[str]:
-        try:
-            el = await page.query_selector(selector)
-            if el:
-                return await el.get_attribute(attr)
-        except Exception:
-            pass
-        return None

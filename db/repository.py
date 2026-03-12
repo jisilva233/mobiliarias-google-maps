@@ -22,6 +22,13 @@ class AgencyRepository:
         if not agencies:
             return {"inserted": 0, "updated": 0, "errors": 0}
 
+        # Deduplicar por (nome, cidade) — manter último registro
+        seen = {}
+        for a in agencies:
+            seen[(a.nome, a.cidade)] = a
+        agencies = list(seen.values())
+        logger.info("%d registros após deduplicação", len(agencies))
+
         report = {"inserted": 0, "updated": 0, "errors": 0}
         batches = [
             agencies[i: i + BATCH_SIZE]
